@@ -15,6 +15,7 @@ export interface MicroTopic {
   id: string;
   title: string;
   description: string;
+  completed?: boolean;
 }
 
 export interface Skill {

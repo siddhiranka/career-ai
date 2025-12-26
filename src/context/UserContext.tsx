@@ -10,7 +10,10 @@ interface UserContextType {
   setRoadmapSkills: (skills: Skill[]) => void;
   completeSkill: (skillId: string) => void;
   setActiveSkill: (skillId: string) => void;
+  toggleTopic: (skillId: string, topicId: string) => void;
   progress: number;
+  topicProgress: { completed: number; total: number };
+  estimatedDaysRemaining: number;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -49,9 +52,51 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
-  const progress = roadmapSkills.length > 0
-    ? Math.round((roadmapSkills.filter(s => s.status === 'completed').length / roadmapSkills.length) * 100)
+  const toggleTopic = (skillId: string, topicId: string) => {
+    setRoadmapSkills((prev) =>
+      prev.map((skill) => {
+        if (skill.id === skillId) {
+          const updatedTopics = skill.microTopics.map((topic) =>
+            topic.id === topicId ? { ...topic, completed: !topic.completed } : topic
+          );
+          const allCompleted = updatedTopics.every((t) => t.completed);
+          return {
+            ...skill,
+            microTopics: updatedTopics,
+            status: allCompleted ? 'completed' : skill.status,
+          };
+        }
+        return skill;
+      })
+    );
+  };
+
+  // Calculate topic-based progress
+  const topicProgress = roadmapSkills.reduce(
+    (acc, skill) => ({
+      completed: acc.completed + skill.microTopics.filter((t) => t.completed).length,
+      total: acc.total + skill.microTopics.length,
+    }),
+    { completed: 0, total: 0 }
+  );
+
+  const progress = topicProgress.total > 0
+    ? Math.round((topicProgress.completed / topicProgress.total) * 100)
     : 0;
+
+  // Calculate estimated days remaining
+  const estimatedDaysRemaining = roadmapSkills.reduce((acc, skill) => {
+    if (skill.status === 'completed') return acc;
+    const completedTopics = skill.microTopics.filter((t) => t.completed).length;
+    const totalTopics = skill.microTopics.length;
+    const remainingRatio = totalTopics > 0 ? (totalTopics - completedTopics) / totalTopics : 1;
+    const daysMatch = skill.days.match(/(\d+)-(\d+)/);
+    if (daysMatch) {
+      const avgDays = (parseInt(daysMatch[1]) + parseInt(daysMatch[2])) / 2;
+      return acc + Math.ceil(avgDays * remainingRatio);
+    }
+    return acc;
+  }, 0);
 
   return (
     <UserContext.Provider
@@ -63,7 +108,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         setRoadmapSkills,
         completeSkill,
         setActiveSkill,
+        toggleTopic,
         progress,
+        topicProgress,
+        estimatedDaysRemaining,
       }}
     >
       {children}

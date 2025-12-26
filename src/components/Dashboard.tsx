@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { useUser } from '@/context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -8,21 +7,21 @@ import {
   Target, 
   Clock, 
   CheckCircle2,
-  MessageCircle,
-  X,
-  Send,
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Zap,
+  BookOpen
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import SkillRoadmap from './SkillRoadmap';
 import SkillDetail from './SkillDetail';
+import AIChatbot from './AIChatbot';
 import { Skill } from '@/types/skillpath';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user, roadmapSkills, progress } = useUser();
+  const { user, roadmapSkills, progress, topicProgress, estimatedDaysRemaining } = useUser();
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
 
   if (!user) {
     navigate('/');
@@ -32,31 +31,57 @@ const Dashboard = () => {
   const completedSkills = roadmapSkills.filter(s => s.status === 'completed').length;
   const remainingSkills = roadmapSkills.length - completedSkills;
   const activeSkill = roadmapSkills.find(s => s.status === 'active');
+  const isInternshipMode = user.goal === 'internship' || user.goal === 'both';
+
+  // Calculate internship readiness based on topic progress and projects
+  const projectSkill = roadmapSkills.find(s => s.name.toLowerCase().includes('project'));
+  const projectTopicsCompleted = projectSkill?.microTopics.filter(t => t.completed).length || 0;
+  const projectTopicsTotal = projectSkill?.microTopics.length || 1;
+  const internshipReadiness = Math.min(
+    Math.round((progress * 0.6) + ((projectTopicsCompleted / projectTopicsTotal) * 40)),
+    100
+  );
+
+  // Determine learning status
+  const getStatusMessage = () => {
+    if (progress === 0) return { text: 'Ready to begin', color: 'text-muted-foreground' };
+    if (progress < 25) return { text: 'Just getting started', color: 'text-warning' };
+    if (progress < 50) return { text: 'Building momentum', color: 'text-primary' };
+    if (progress < 75) return { text: 'Great progress!', color: 'text-primary' };
+    if (progress < 100) return { text: 'Almost there!', color: 'text-success' };
+    return { text: 'Complete!', color: 'text-success' };
+  };
+
+  const status = getStatusMessage();
 
   const stats = [
     { 
       icon: TrendingUp, 
       label: 'Progress', 
       value: `${progress}%`,
+      subtext: `${topicProgress.completed}/${topicProgress.total} topics`,
       color: 'text-primary'
     },
     { 
       icon: CheckCircle2, 
       label: 'Completed', 
       value: completedSkills,
+      subtext: `${remainingSkills} remaining`,
       color: 'text-success'
     },
     { 
-      icon: Target, 
-      label: 'Remaining', 
-      value: remainingSkills,
+      icon: Calendar, 
+      label: 'Days Left', 
+      value: estimatedDaysRemaining,
+      subtext: 'estimated',
       color: 'text-warning'
     },
     { 
-      icon: Clock, 
-      label: 'Est. Days', 
-      value: '60-80',
-      color: 'text-muted-foreground'
+      icon: Zap, 
+      label: 'Status', 
+      value: status.text,
+      subtext: '',
+      color: status.color
     },
   ];
 
@@ -102,7 +127,7 @@ const Dashboard = () => {
               Your Learning Roadmap
             </h1>
             <p className="text-muted-foreground">
-              {user.goal === 'internship' || user.goal === 'both' 
+              {isInternshipMode 
                 ? 'Focused path to get you internship-ready'
                 : 'Master each skill step by step'}
             </p>
@@ -117,8 +142,11 @@ const Dashboard = () => {
                     <stat.icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
                     <p className="text-xs text-muted-foreground">{stat.label}</p>
+                    {stat.subtext && (
+                      <p className="text-xs text-muted-foreground/70">{stat.subtext}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -137,6 +165,14 @@ const Dashboard = () => {
                 style={{ width: `${progress}%` }}
               />
             </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-xs text-muted-foreground">
+                {topicProgress.completed} topics completed
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {topicProgress.total - topicProgress.completed} remaining
+              </span>
+            </div>
           </div>
 
           {/* Next Action Card */}
@@ -145,12 +181,14 @@ const Dashboard = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-                    <Target className="w-6 h-6 text-primary" />
+                    <BookOpen className="w-6 h-6 text-primary" />
                   </div>
                   <div>
                     <p className="text-sm text-muted-foreground">Next Step</p>
                     <h3 className="font-semibold text-foreground text-lg">{activeSkill.name}</h3>
-                    <p className="text-xs text-muted-foreground">{activeSkill.days}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {activeSkill.microTopics.filter(t => t.completed).length}/{activeSkill.microTopics.length} topics • {activeSkill.days}
+                    </p>
                   </div>
                 </div>
                 <Button 
@@ -158,7 +196,7 @@ const Dashboard = () => {
                   size="sm"
                   onClick={() => setSelectedSkill(activeSkill)}
                 >
-                  Start Learning
+                  Continue
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -174,8 +212,43 @@ const Dashboard = () => {
             />
           </div>
 
+          {/* Dashboard Analysis Section */}
+          <div className="glass-card p-5 rounded-xl mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-primary/20">
+                <TrendingUp className="w-5 h-5 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground">Learning Analysis</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <p className="text-2xl font-bold text-foreground">{completedSkills}/{roadmapSkills.length}</p>
+                <p className="text-sm text-muted-foreground">Skills completed</p>
+              </div>
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <p className="text-2xl font-bold text-foreground">{estimatedDaysRemaining}</p>
+                <p className="text-sm text-muted-foreground">Days to complete</p>
+              </div>
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <p className={`text-2xl font-bold ${progress >= 50 ? 'text-success' : 'text-warning'}`}>
+                  {progress >= 75 ? 'On Track' : progress >= 50 ? 'Good Progress' : 'Keep Going'}
+                </p>
+                <p className="text-sm text-muted-foreground">Current status</p>
+              </div>
+            </div>
+            {progress > 0 && progress < 100 && (
+              <p className="text-sm text-muted-foreground mt-4">
+                💡 {progress < 30 
+                  ? "Focus on completing one skill at a time. Consistency beats speed!"
+                  : progress < 70
+                  ? "You're building solid foundations. Keep the momentum going!"
+                  : "Almost there! Consider starting on projects to solidify your learning."}
+              </p>
+            )}
+          </div>
+
           {/* Internship Readiness (if applicable) */}
-          {(user.goal === 'internship' || user.goal === 'both') && (
+          {isInternshipMode && (
             <div className="glass-card p-5 rounded-xl">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-lg bg-success/20">
@@ -185,16 +258,43 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Ready to apply</span>
-                <span className="text-sm font-semibold text-success">{Math.min(progress + 10, 100)}%</span>
+                <span className="text-sm font-semibold text-success">{internshipReadiness}%</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-success transition-all duration-500 rounded-full"
-                  style={{ width: `${Math.min(progress + 10, 100)}%` }}
+                  style={{ width: `${internshipReadiness}%` }}
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-3">
-                Complete your roadmap and build projects to become fully ready
+              
+              {/* Checklist */}
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-4 h-4 ${progress >= 30 ? 'text-success' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm ${progress >= 30 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    Core skills foundation (30%+ progress)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-4 h-4 ${progress >= 60 ? 'text-success' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm ${progress >= 60 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    Advanced skills coverage (60%+ progress)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-4 h-4 ${projectTopicsCompleted > 0 ? 'text-success' : 'text-muted-foreground'}`} />
+                  <span className={`text-sm ${projectTopicsCompleted > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    Portfolio projects ({projectTopicsCompleted}/{projectTopicsTotal} completed)
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-4">
+                {internshipReadiness < 50 
+                  ? "Complete more topics and start building projects to become internship-ready"
+                  : internshipReadiness < 80
+                  ? "Good progress! Focus on completing projects to stand out in applications"
+                  : "You're ready to start applying! Make sure your portfolio showcases your projects"}
               </p>
             </div>
           )}
@@ -209,64 +309,13 @@ const Dashboard = () => {
         />
       )}
 
-      {/* AI Chat Button (Mobile Fixed) */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <Button
-          variant="hero"
-          size="icon"
-          className="w-14 h-14 rounded-full shadow-2xl"
-          onClick={() => setChatOpen(!chatOpen)}
-        >
-          {chatOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
-        </Button>
-      </div>
-
-      {/* AI Chat Panel */}
-      {chatOpen && (
-        <div className="fixed bottom-24 right-6 w-[90vw] max-w-md z-50 animate-slide-up">
-          <div className="glass-card rounded-2xl overflow-hidden border border-border shadow-2xl">
-            <div className="p-4 border-b border-border bg-card/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">AI Mentor</h3>
-                  <p className="text-xs text-muted-foreground">Ask me anything about your path</p>
-                </div>
-              </div>
-            </div>
-            <div className="h-64 p-4 overflow-y-auto bg-background/50">
-              <div className="bg-muted/50 p-3 rounded-lg rounded-tl-none max-w-[85%]">
-                <p className="text-sm text-foreground">
-                  Hi {user.username}! 👋 I'm your AI mentor. I can help you with:
-                </p>
-                <ul className="text-sm text-muted-foreground mt-2 space-y-1">
-                  <li>• Explaining concepts simply</li>
-                  <li>• Suggesting next steps</li>
-                  <li>• Interview preparation</li>
-                  <li>• Project ideas</li>
-                </ul>
-              </div>
-            </div>
-            <div className="p-4 border-t border-border bg-card/80">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ask a question..."
-                  value={chatMessage}
-                  onChange={(e) => setChatMessage(e.target.value)}
-                  className="flex-1 px-4 py-2 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <Button variant="default" size="icon">
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center mt-2">Coming Soon</p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* AI Chatbot */}
+      <AIChatbot 
+        domain={user.domain}
+        username={user.username}
+        isInternshipMode={isInternshipMode}
+        progress={progress}
+      />
     </div>
   );
 };
