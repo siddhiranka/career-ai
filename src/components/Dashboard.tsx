@@ -3,19 +3,22 @@ import { useUser } from '@/context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Sparkles, 
-  TrendingUp, 
   Target, 
-  Clock, 
   CheckCircle2,
   ChevronRight,
-  Calendar,
-  Zap,
-  BookOpen
+  BookOpen,
+  Award,
+  Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SkillRoadmap from './SkillRoadmap';
 import SkillDetail from './SkillDetail';
 import AIChatbot from './AIChatbot';
+import CircularProgress from './CircularProgress';
+import SkillRadarChart from './SkillRadarChart';
+import SkillHealthAnalysis from './SkillHealthAnalysis';
+import WeakAreaFocus from './WeakAreaFocus';
+import AIInsightCard from './AIInsightCard';
 import { Skill } from '@/types/skillpath';
 
 const Dashboard = () => {
@@ -29,11 +32,10 @@ const Dashboard = () => {
   }
 
   const completedSkills = roadmapSkills.filter(s => s.status === 'completed').length;
-  const remainingSkills = roadmapSkills.length - completedSkills;
   const activeSkill = roadmapSkills.find(s => s.status === 'active');
   const isInternshipMode = user.goal === 'internship' || user.goal === 'both';
 
-  // Calculate internship readiness based on topic progress and projects
+  // Calculate internship readiness
   const projectSkill = roadmapSkills.find(s => s.name.toLowerCase().includes('project'));
   const projectTopicsCompleted = projectSkill?.microTopics.filter(t => t.completed).length || 0;
   const projectTopicsTotal = projectSkill?.microTopics.length || 1;
@@ -42,63 +44,37 @@ const Dashboard = () => {
     100
   );
 
-  // Determine learning status
-  const getStatusMessage = () => {
-    if (progress === 0) return { text: 'Ready to begin', color: 'text-muted-foreground' };
-    if (progress < 25) return { text: 'Just getting started', color: 'text-warning' };
-    if (progress < 50) return { text: 'Building momentum', color: 'text-primary' };
-    if (progress < 75) return { text: 'Great progress!', color: 'text-primary' };
-    if (progress < 100) return { text: 'Almost there!', color: 'text-success' };
-    return { text: 'Complete!', color: 'text-success' };
+  // Get mode badge
+  const getModeLabel = () => {
+    switch (user.goal) {
+      case 'internship': return 'Internship Track';
+      case 'both': return 'Learning + Internship';
+      default: return 'Learning Track';
+    }
   };
 
-  const status = getStatusMessage();
-
-  const stats = [
-    { 
-      icon: TrendingUp, 
-      label: 'Progress', 
-      value: `${progress}%`,
-      subtext: `${topicProgress.completed}/${topicProgress.total} topics`,
-      color: 'text-primary'
-    },
-    { 
-      icon: CheckCircle2, 
-      label: 'Completed', 
-      value: completedSkills,
-      subtext: `${remainingSkills} remaining`,
-      color: 'text-success'
-    },
-    { 
-      icon: Calendar, 
-      label: 'Days Left', 
-      value: estimatedDaysRemaining,
-      subtext: 'estimated',
-      color: 'text-warning'
-    },
-    { 
-      icon: Zap, 
-      label: 'Status', 
-      value: status.text,
-      subtext: '',
-      color: status.color
-    },
-  ];
+  // Get strong skills for showcase
+  const strongSkills = roadmapSkills.filter(skill => {
+    const completed = skill.microTopics.filter(t => t.completed).length;
+    const total = skill.microTopics.length;
+    return total > 0 && (completed / total) >= 0.7;
+  });
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen gradient-bg">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] gradient-glow rounded-full blur-3xl opacity-10" />
-        <div className="absolute bottom-1/4 left-0 w-[400px] h-[400px] gradient-glow rounded-full blur-3xl opacity-10" />
+        <div className="absolute top-0 right-1/4 w-[600px] h-[600px] gradient-glow rounded-full blur-3xl opacity-20" />
+        <div className="absolute bottom-1/4 left-0 w-[400px] h-[400px] gradient-glow rounded-full blur-3xl opacity-15" />
+        <div className="absolute top-1/2 right-0 w-[300px] h-[300px] gradient-glow rounded-full blur-3xl opacity-10" />
       </div>
 
       {/* Navbar */}
-      <nav className="relative z-10 px-4 py-4 lg:px-8 border-b border-border">
+      <nav className="relative z-10 px-4 py-4 lg:px-8 border-b border-border/50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center glow-primary">
+              <Sparkles className="w-5 h-5 text-primary" />
             </div>
             <div>
               <span className="font-bold text-foreground">SkillPath</span>
@@ -121,66 +97,56 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="relative z-10 px-4 py-6 lg:px-8 pb-24 lg:pb-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
-              Your Learning Roadmap
-            </h1>
-            <p className="text-muted-foreground">
-              {isInternshipMode 
-                ? 'Focused path to get you internship-ready'
-                : 'Master each skill step by step'}
-            </p>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {stats.map((stat) => (
-              <div key={stat.label} className="glass-card p-4 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg bg-muted ${stat.color}`}>
-                    <stat.icon className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
-                    <p className="text-xs text-muted-foreground">{stat.label}</p>
-                    {stat.subtext && (
-                      <p className="text-xs text-muted-foreground/70">{stat.subtext}</p>
-                    )}
+          
+          {/* Welcome + Status Header */}
+          <div className="glass-card p-6 rounded-2xl mb-6 animate-fade-in">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              {/* Left: User Info */}
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl font-bold text-primary">
+                  {user.username.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h1 className="text-xl lg:text-2xl font-bold text-foreground">
+                    Welcome back, {user.username}
+                  </h1>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-sm text-muted-foreground capitalize">
+                      {user.domain.replace('-', ' ')}
+                    </span>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-medium">
+                      {getModeLabel()}
+                    </span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
 
-          {/* Progress Bar */}
-          <div className="glass-card p-4 rounded-xl mb-8">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-foreground">Overall Progress</span>
-              <span className="text-sm text-primary font-semibold">{progress}%</span>
+              {/* Right: Progress Ring + Days */}
+              <div className="flex items-center gap-6">
+                <CircularProgress progress={progress} size={100} strokeWidth={8} />
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-foreground">{estimatedDaysRemaining}</p>
+                  <p className="text-sm text-muted-foreground">days left</p>
+                </div>
+              </div>
             </div>
-            <div className="h-3 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500 rounded-full"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-muted-foreground">
-                {topicProgress.completed} topics completed
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {topicProgress.total - topicProgress.completed} remaining
-              </span>
+
+            {/* Progress summary text */}
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <p className="text-sm text-muted-foreground">
+                You've completed <span className="text-primary font-semibold">{topicProgress.completed}</span> out of <span className="text-foreground font-semibold">{topicProgress.total}</span> topics. 
+                {progress < 100 ? " Keep going — consistency matters!" : " Amazing work!"}
+              </p>
             </div>
           </div>
 
           {/* Next Action Card */}
           {activeSkill && (
-            <div className="glass-card p-5 rounded-xl mb-8 border-primary/20 border">
-              <div className="flex items-center justify-between">
+            <div className="glass-card p-5 rounded-2xl mb-6 border border-primary/20 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center glow-primary">
                     <BookOpen className="w-6 h-6 text-primary" />
                   </div>
                   <div>
@@ -192,19 +158,78 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <Button 
-                  variant="default" 
-                  size="sm"
                   onClick={() => setSelectedSkill(activeSkill)}
+                  className="w-full sm:w-auto"
                 >
-                  Continue
-                  <ChevronRight className="w-4 h-4" />
+                  Continue Learning
+                  <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </div>
           )}
 
+          {/* Skill Health Analysis */}
+          <div className="mb-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+            <SkillHealthAnalysis 
+              skills={roadmapSkills} 
+              onSkillClick={setSelectedSkill} 
+            />
+          </div>
+
+          {/* Radar Chart + Weak Area Focus */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+              <SkillRadarChart skills={roadmapSkills} />
+            </div>
+            <div className="animate-fade-in" style={{ animationDelay: '0.35s' }}>
+              <WeakAreaFocus skills={roadmapSkills} onStartSkill={setSelectedSkill} />
+            </div>
+          </div>
+
+          {/* Strength Showcase */}
+          {strongSkills.length > 0 && (
+            <div className="glass-card p-5 rounded-2xl mb-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 rounded-xl bg-success/20">
+                  <Trophy className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">You're Doing Great At</h3>
+                  <p className="text-xs text-muted-foreground">Skills with 70%+ completion</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {strongSkills.map((skill) => (
+                  <div 
+                    key={skill.id}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-success/10 border border-success/30 glow-success"
+                  >
+                    <Award className="w-4 h-4 text-success" />
+                    <span className="font-medium text-foreground">{skill.name}</span>
+                    <CheckCircle2 className="w-4 h-4 text-success" />
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-4">
+                {strongSkills.length === 1 
+                  ? `Your strength in ${strongSkills[0].name} will help you move faster in related topics.`
+                  : `These ${strongSkills.length} strong skills form a solid foundation for your journey.`}
+              </p>
+            </div>
+          )}
+
+          {/* AI Insights */}
+          <div className="mb-6 animate-fade-in" style={{ animationDelay: '0.45s' }}>
+            <AIInsightCard 
+              skills={roadmapSkills}
+              progress={progress}
+              estimatedDaysRemaining={estimatedDaysRemaining}
+              isInternshipMode={isInternshipMode}
+            />
+          </div>
+
           {/* Roadmap */}
-          <div className="mb-8">
+          <div className="mb-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
             <h2 className="text-lg font-semibold text-foreground mb-4">Skill Roadmap</h2>
             <SkillRoadmap 
               skills={roadmapSkills} 
@@ -212,63 +237,36 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Dashboard Analysis Section */}
-          <div className="glass-card p-5 rounded-xl mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-primary/20">
-                <TrendingUp className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="font-semibold text-foreground">Learning Analysis</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-foreground">{completedSkills}/{roadmapSkills.length}</p>
-                <p className="text-sm text-muted-foreground">Skills completed</p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <p className="text-2xl font-bold text-foreground">{estimatedDaysRemaining}</p>
-                <p className="text-sm text-muted-foreground">Days to complete</p>
-              </div>
-              <div className="p-4 bg-muted/30 rounded-lg">
-                <p className={`text-2xl font-bold ${progress >= 50 ? 'text-success' : 'text-warning'}`}>
-                  {progress >= 75 ? 'On Track' : progress >= 50 ? 'Good Progress' : 'Keep Going'}
-                </p>
-                <p className="text-sm text-muted-foreground">Current status</p>
-              </div>
-            </div>
-            {progress > 0 && progress < 100 && (
-              <p className="text-sm text-muted-foreground mt-4">
-                💡 {progress < 30 
-                  ? "Focus on completing one skill at a time. Consistency beats speed!"
-                  : progress < 70
-                  ? "You're building solid foundations. Keep the momentum going!"
-                  : "Almost there! Consider starting on projects to solidify your learning."}
-              </p>
-            )}
-          </div>
-
           {/* Internship Readiness (if applicable) */}
           {isInternshipMode && (
-            <div className="glass-card p-5 rounded-xl">
+            <div className="glass-card p-5 rounded-2xl animate-fade-in" style={{ animationDelay: '0.55s' }}>
               <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-lg bg-success/20">
+                <div className="p-2 rounded-xl bg-success/20 glow-success">
                   <Target className="w-5 h-5 text-success" />
                 </div>
-                <h3 className="font-semibold text-foreground">Internship Readiness</h3>
+                <div>
+                  <h3 className="font-semibold text-foreground">Internship Readiness</h3>
+                  <p className="text-xs text-muted-foreground">Your apply-ready score</p>
+                </div>
               </div>
+              
+              {/* Progress bar */}
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">Ready to apply</span>
-                <span className="text-sm font-semibold text-success">{internshipReadiness}%</span>
+                <span className="text-lg font-bold text-success">{internshipReadiness}%</span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-3 bg-muted rounded-full overflow-hidden mb-4">
                 <div
                   className="h-full bg-success transition-all duration-500 rounded-full"
-                  style={{ width: `${internshipReadiness}%` }}
+                  style={{ 
+                    width: `${internshipReadiness}%`,
+                    boxShadow: '0 0 20px hsl(var(--success) / 0.5)'
+                  }}
                 />
               </div>
               
               {/* Checklist */}
-              <div className="mt-4 space-y-2">
+              <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`w-4 h-4 ${progress >= 30 ? 'text-success' : 'text-muted-foreground'}`} />
                   <span className={`text-sm ${progress >= 30 ? 'text-foreground' : 'text-muted-foreground'}`}>
@@ -289,7 +287,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <p className="text-xs text-muted-foreground mt-4">
+              <p className="text-xs text-muted-foreground">
                 {internshipReadiness < 50 
                   ? "Complete more topics and start building projects to become internship-ready"
                   : internshipReadiness < 80
